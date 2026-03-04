@@ -1,3 +1,6 @@
+"""
+Legacy Item ORM model + Pydantic schemas (kept for backward compatibility).
+"""
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field
