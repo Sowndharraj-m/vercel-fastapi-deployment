@@ -1,7 +1,8 @@
 """
-Authentication router – login, invite-complete, refresh, password reset stubs.
+Authentication router – login, invite-complete, refresh, password reset.
 """
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from app.schemas.auth import (
 from app.schemas.user import UserResponse
 from app.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.dependencies import get_current_user, require_role
+from app.email import send_password_reset_email
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
@@ -94,15 +96,48 @@ def complete_invite(data: InviteCompleteRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/forgot-password")
-def forgot_password(data: PasswordResetRequest):
-    """Stub – in production, send reset email."""
+def forgot_password(data: PasswordResetRequest, db: Session = Depends(get_db)):
+    """Generate a password reset token and send email."""
+    user = db.query(User).filter(User.email == data.email).first()
+
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If the email exists, a password reset link has been sent."}
+
+    # Generate a secure token
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.commit()
+
+    # Send email (in dev mode, this logs to console)
+    send_password_reset_email(user.email, token)
+
     return {"message": "If the email exists, a password reset link has been sent."}
 
 
 @router.post("/reset-password")
-def reset_password(data: PasswordResetConfirm):
-    """Stub – in production, validate token and update password."""
-    return {"message": "Password reset successful (stub)."}
+def reset_password(data: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Validate the reset token and update the password."""
+    user = db.query(User).filter(User.reset_token == data.token).first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    if user.reset_token_expires and user.reset_token_expires < datetime.now(timezone.utc):
+        # Token expired — clear it
+        user.reset_token = None
+        user.reset_token_expires = None
+        db.commit()
+        raise HTTPException(status_code=400, detail="Reset token has expired. Please request a new one.")
+
+    # Update password
+    user.password_hash = hash_password(data.new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+
+    return {"message": "Password reset successful. You can now log in with your new password."}
 
 
 @router.get("/me", response_model=UserResponse)

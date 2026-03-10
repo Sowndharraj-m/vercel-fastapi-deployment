@@ -4,6 +4,40 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import type { PersonListResponse } from "@/lib/types";
 import Link from "next/link";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from "recharts";
+
+interface StatsData {
+  total: number;
+  by_type: { name: string; count: number }[];
+  by_status: { name: string; count: number }[];
+  by_department: { name: string; count: number }[];
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  EMPLOYEE: "#6366f1",
+  INTERN: "#a855f7",
+  STUDENT: "#3b82f6",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  ACTIVE: "#34d399",
+  DRAFT: "#64748b",
+  INVITED: "#fbbf24",
+  INACTIVE: "#f87171",
+  EXITED: "#60a5fa",
+};
+
+const CHART_TOOLTIP_STYLE = {
+  backgroundColor: "#1a2236",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "10px",
+  color: "#f1f5f9",
+  fontSize: "13px",
+  padding: "10px 14px",
+};
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -12,15 +46,17 @@ export default function DashboardPage() {
     interns: 0,
     pendingDocs: 0,
   });
+  const [chartData, setChartData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [allRes, empRes, internRes] = await Promise.allSettled([
+        const [allRes, empRes, internRes, statsRes] = await Promise.allSettled([
           api.get<PersonListResponse>("/api/v1/people?limit=1"),
           api.get<PersonListResponse>("/api/v1/people?person_type=EMPLOYEE&status=ACTIVE&limit=1"),
           api.get<PersonListResponse>("/api/v1/people?person_type=INTERN&limit=1"),
+          api.get<StatsData>("/api/v1/people/stats"),
         ]);
         setStats({
           totalPeople: allRes.status === "fulfilled" ? allRes.value.data.total : 0,
@@ -28,6 +64,9 @@ export default function DashboardPage() {
           interns: internRes.status === "fulfilled" ? internRes.value.data.total : 0,
           pendingDocs: 0,
         });
+        if (statsRes.status === "fulfilled") {
+          setChartData(statsRes.value.data);
+        }
       } catch {
         // stats will remain at 0
       } finally {
@@ -146,6 +185,8 @@ export default function DashboardPage() {
     },
   ];
 
+  const hasChartData = chartData && chartData.total > 0;
+
   return (
     <div>
       {/* Stat Cards */}
@@ -174,6 +215,105 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Charts Section */}
+      {hasChartData && (
+        <div className="card-grid-2" style={{ marginBottom: "32px" }}>
+          {/* Department Bar Chart */}
+          <div className="glass-card" style={{ padding: "28px" }}>
+            <h3 className="section-title" style={{ marginBottom: "24px" }}>People by Department</h3>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData.by_department} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} cursor={{ fill: "rgba(99,102,241,0.08)" }} />
+                <Bar dataKey="count" name="People" radius={[6, 6, 0, 0]} maxBarSize={48}>
+                  {chartData.by_department.map((_, index) => (
+                    <Cell key={index} fill={index % 2 === 0 ? "#6366f1" : "#a855f7"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Type & Status Charts */}
+          <div className="glass-card" style={{ padding: "28px" }}>
+            <h3 className="section-title" style={{ marginBottom: "24px" }}>Distribution Overview</h3>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {/* Type Pie */}
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>By Type</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.by_type}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      dataKey="count"
+                      nameKey="name"
+                      strokeWidth={2}
+                      stroke="#0a0e1a"
+                    >
+                      {chartData.by_type.map((entry) => (
+                        <Cell key={entry.name} fill={TYPE_COLORS[entry.name] || "#64748b"} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: "11px", color: "#94a3b8" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Status Donut */}
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>By Status</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.by_status}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      dataKey="count"
+                      nameKey="name"
+                      strokeWidth={2}
+                      stroke="#0a0e1a"
+                    >
+                      {chartData.by_status.map((entry) => (
+                        <Cell key={entry.name} fill={STATUS_COLORS[entry.name] || "#64748b"} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: "11px", color: "#94a3b8" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Grid */}
       <div className="card-grid-2">

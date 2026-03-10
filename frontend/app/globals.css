@@ -45,7 +45,7 @@
   --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@theme inline {
+@theme inline { 
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
   --font-sans: "Inter", var(--font-geist-sans), system-ui, -apple-system, sans-serif;
@@ -291,6 +291,14 @@ select.input-field {
   background-position: right 14px center;
   padding-right: 40px;
   cursor: pointer;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+select.input-field option {
+  background-color: #1a2236;
+  color: #f1f5f9;
+  padding: 8px 12px;
 }
 
 /* ─── Badges ─── */

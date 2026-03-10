@@ -4,6 +4,7 @@ People router – admin CRUD + self-service profile endpoints.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,6 +19,50 @@ from app.id_generator import generate_person_code
 from app.audit import record_audit
 
 router = APIRouter(prefix="/api/v1", tags=["People"])
+
+
+# ── Stats endpoint ───────────────────────────────────────────────
+
+@router.get("/people/stats")
+def get_people_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN", "HR")),
+):
+    """Return aggregate counts grouped by type, status, and department."""
+    base = db.query(Person).filter(Person.is_deleted == False)  # noqa: E712
+
+    # By type
+    type_rows = (
+        base.with_entities(Person.person_type, func.count(Person.id))
+        .group_by(Person.person_type)
+        .all()
+    )
+    by_type = [{"name": row[0].value if row[0] else "Unknown", "count": row[1]} for row in type_rows]
+
+    # By status
+    status_rows = (
+        base.with_entities(Person.status, func.count(Person.id))
+        .group_by(Person.status)
+        .all()
+    )
+    by_status = [{"name": row[0].value if row[0] else "Unknown", "count": row[1]} for row in status_rows]
+
+    # By department
+    dept_rows = (
+        base.with_entities(Person.department, func.count(Person.id))
+        .group_by(Person.department)
+        .all()
+    )
+    by_department = [{"name": row[0] or "Unassigned", "count": row[1]} for row in dept_rows]
+
+    total = base.count()
+
+    return {
+        "total": total,
+        "by_type": by_type,
+        "by_status": by_status,
+        "by_department": by_department,
+    }
 
 
 # ── Admin endpoints ──────────────────────────────────────────────

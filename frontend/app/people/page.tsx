@@ -59,7 +59,9 @@ export default function PeoplePage() {
         switch (status) {
             case "ACTIVE": return "badge-success";
             case "INACTIVE": return "badge-danger";
-            case "ONBOARDING": return "badge-warning";
+            case "DRAFT": return "badge-neutral";
+            case "INVITED": return "badge-warning";
+            case "EXITED": return "badge-info";
             default: return "badge-neutral";
         }
     };
@@ -101,9 +103,11 @@ export default function PeoplePage() {
                         <label className="input-label">Status</label>
                         <select className="input-field" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
                             <option value="">All Status</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="INVITED">Invited</option>
                             <option value="ACTIVE">Active</option>
                             <option value="INACTIVE">Inactive</option>
-                            <option value="ONBOARDING">Onboarding</option>
+                            <option value="EXITED">Exited</option>
                         </select>
                     </div>
                     <button className="btn-secondary" onClick={handleSearch}>Search</button>

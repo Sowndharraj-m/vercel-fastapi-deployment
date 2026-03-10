@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     UPLOAD_DIR: str = "./uploads"
 
+    # Email settings
+    SMTP_HOST: str = ""  # Empty = log to console instead of sending
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    MAIL_FROM: str = "noreply@startuphr.com"
+    FRONTEND_URL: str = "http://localhost:3000"
+
     class Config:
         env_file = ".env"
         extra = "ignore"

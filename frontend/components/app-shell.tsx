@@ -20,6 +20,19 @@ const PAGE_TITLES: Record<string, string> = {
     "/profile": "My Profile",
 };
 
+// Which roles can access which routes
+const ROUTE_ACCESS: Record<string, string[]> = {
+    "/": ["ADMIN", "HR", "EMPLOYEE"],
+    "/people": ["ADMIN", "HR"],
+    "/offers": ["ADMIN", "HR"],
+    "/documents": ["ADMIN", "HR", "EMPLOYEE"],
+    "/onboarding": ["ADMIN", "HR", "EMPLOYEE"],
+    "/attendance": ["ADMIN", "HR", "EMPLOYEE"],
+    "/compensation": ["ADMIN"],
+    "/audit": ["ADMIN"],
+    "/profile": ["ADMIN", "HR", "EMPLOYEE"],
+};
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
     const pathname = usePathname();
@@ -31,6 +44,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             router.push("/login");
         }
     }, [user, loading, isAuthPage, router]);
+
+    // Route-level role protection
+    useEffect(() => {
+        if (!loading && user && !isAuthPage) {
+            const basePath = "/" + (pathname.split("/")[1] || "");
+            const allowedRoles = ROUTE_ACCESS[basePath];
+            if (allowedRoles && !allowedRoles.includes(user.role)) {
+                router.push("/"); // Redirect unauthorized users to dashboard
+            }
+        }
+    }, [user, loading, pathname, isAuthPage, router]);
 
     if (loading) {
         return (
@@ -45,6 +69,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (!user) return null;
+
+    // Check if user has access to current route
+    const basePath = "/" + (pathname.split("/")[1] || "");
+    const allowedRoles = ROUTE_ACCESS[basePath];
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        return null; // Will be redirected by useEffect
+    }
 
     const title = PAGE_TITLES[pathname] || Object.entries(PAGE_TITLES).find(([k]) => k !== "/" && pathname.startsWith(k))?.[1] || "Dashboard";
 
