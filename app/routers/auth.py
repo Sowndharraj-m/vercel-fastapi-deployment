@@ -55,8 +55,8 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user.last_login = datetime.now(timezone.utc)
     db.commit()
 
-    access = create_access_token({"sub": user.id, "role": user.role.value})
-    refresh = create_refresh_token({"sub": user.id})
+    access = create_access_token({"sub": str(user.id), "role": user.role.value})
+    refresh = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
@@ -68,12 +68,12 @@ def refresh_token(data: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    access = create_access_token({"sub": user.id, "role": user.role.value})
-    refresh = create_refresh_token({"sub": user.id})
+    access = create_access_token({"sub": str(user.id), "role": user.role.value})
+    refresh = create_refresh_token({"sub": str(user.id)})
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
